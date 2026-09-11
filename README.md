@@ -73,6 +73,10 @@ Cloudflare Workers Free currently includes **100,000 dynamic requests per day pe
 
 See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and [limits](https://developers.cloudflare.com/workers/platform/limits/). Prices and limits can change. The optional paid Workers plan starts at $5/month; Durable Objects are unnecessary for this version.
 
+## Future live updates
+
+The [live workspace updates proposal](docs/live-workspace-updates.md) describes how Shortcut webhooks and a Cloudflare Durable Object could keep the UI current. This is documented for future work; webhook support is not implemented.
+
 ## Navigate
 
 - Click a block or platform to inspect it. Double-click to enter.
@@ -89,6 +93,29 @@ See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing
 Platforms represent objective and epic directories. Colored blocks represent their contents. Color indicates time since the last update, using the age legend. Story block height reflects its estimate. The translucent beam marks the selected object. It glides between selections over 320 ms with a gentle start and stop. Rapid selections redirect it from its current position; background loading does not restart the motion. The first selection in a new directory appears in place. Reduced-motion preferences disable the glide. Camera flight remains a separate action on F. The overview renders the same 3D scene from above and includes a camera marker.
 
 The three antennas count the platform’s direct, loaded, non-archived contents. Objectives count epics; epics count stories. Blue means unstarted, amber means in progress, and green means completed. Heights are proportional within each platform, with its largest status count at full height. Compare the three antennas on one platform; heights do not compare absolute totals across platforms. A bare gray socket means zero loaded items in that status. The inspector shows exact counts and flags partially loaded directories or unknown statuses. Counts include all loaded children, beyond the 24-block preview and 64-item page. Custom story column names use their underlying Shortcut workflow types.
+
+### Workspace terminal
+
+Drag the title bar to move the terminal and drag the bottom-right grip to resize it. Its size and position persist until page reload. Double-click the title bar to reset them. You can also focus the title bar or resize grip with Tab and use arrow keys; hold Shift for smaller steps. The window stays inside the browser viewport.
+
+Choose **Terminal** in the menu, or press **backtick** while the 3D view is focused. The terminal opens ready for read-only Shortcut commands:
+
+- `ls` lists the current directory; `ls epic:100` loads and lists that epic's stories. Use `--page 2` for subsequent pages.
+- `cd objective:1`, `cd ..`, and `cd /` change the directory in both the terminal and the 3D field. `pwd` prints the current location.
+- `find fence` searches loaded names and IDs. Results exclude archived objects and provide reusable object keys.
+- `show story:1000` loads its description and checklist tasks. `show` defaults to the selected object or current directory.
+- `select story:1000` selects the object in the field; `fly story:1000` flies to it. Both return to the field.
+- `link story:1000` prints a clickable Shortcut link. `counts` shows loaded, non-archived totals.
+- `help`, `clear`, and `exit` provide console controls. Up/down arrows recall commands; **Escape** or the close button returns to the field.
+
+Names, unique IDs, and the explicit keys shown by `ls`/`find` can identify objects. Search covers loaded data; epic lists and story details load on demand through the existing read-only loader. The terminal executes no shell commands or JavaScript and cannot modify Shortcut data.
+
+<details>
+<summary>Movie command spoiler</summary>
+
+In the terminal, enter `access main program`, `access security`, then `access main program grid`, in that order. The first two are denied; the third summons Nedry. Other commands and ordinary errors never trigger him. **Return to terminal** resets the movie sequence. The Easter egg does not change the connected workspace or token.
+
+</details>
 
 ## Loading and limits
 

@@ -4,6 +4,7 @@ import { createDemo, AGE_COLORS, AGE_LABELS, ANTENNA_STATUSES } from './data.js'
 import { World } from './world.js';
 import { Loader, api } from './loader.js';
 import { workspaceShortcut } from './navigation.js';
+import { installSecretTerminal } from './secret-terminal.js';
 
 const $ = s => document.querySelector(s);
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,7 +23,7 @@ $('#app').innerHTML = `
   </header>
   <main class="window">
     <div class="titlebar"><span class="window-dot">▰</span><i>fsn</i><span class="window-title">a 3D Shortcut navigator</span><span class="stretch"></span><span class="session-label" id="session-label">DEMO WORKSPACE</span><span class="title-box">◇</span></div>
-    <nav class="menubar" aria-label="Application menu"><button id="session-menu">Session</button><button id="show-menu">Show</button><button id="display-menu">Display</button><button id="directory-menu">Directory</button><span class="stretch"></span><button class="connect-button" id="connect">Connect Shortcut…</button><button id="help">Help</button></nav>
+    <nav class="menubar" aria-label="Application menu"><button id="session-menu">Session</button><button id="show-menu">Show</button><button id="display-menu">Display</button><button id="directory-menu">Directory</button><button id="terminal-menu" title="Open terminal (backtick)">Terminal</button><span class="stretch"></span><button class="connect-button" id="connect">Connect Shortcut…</button><button id="help">Help</button></nav>
     <div class="workspace">
       <aside class="sidebar">
         <div class="nav-buttons"><button id="reset">reset <kbd>Alt+R</kbd></button><button id="back">go back <kbd>Alt+B</kbd></button><button id="birds-eye">bird's eye</button><button id="front-view">front view</button></div>
@@ -57,12 +58,25 @@ $('#app').innerHTML = `
       <div class="dialog-actions"><button type="button" data-close="connect-dialog">Cancel</button><button type="button" id="nedry-retry">Try another token</button></div>
     </section>
   </form></dialog>
-  <dialog id="help-dialog"><div class="titlebar"><i>Navigator help</i><span class="stretch"></span><button data-close="help-dialog" aria-label="Close">×</button></div><div class="dialog-body"><h2>Welcome to the control room.</h2><p>Inspired by <b>fsn</b>, Silicon Graphics' 3D File System Navigator, seen in Jurassic Park.</p><dl class="help-keys"><dt>Click</dt><dd>Select and inspect</dd><dt>Double-click</dt><dd>Enter a directory or story</dd><dt>Drag / right-drag</dt><dd>Orbit / pan the camera</dd><dt>Scroll / pinch</dt><dd>Move closer or farther</dd><dt>Arrow keys</dt><dd>Select nearby siblings in screen directions</dd><dt>F</dt><dd>Fly to the selected object</dd><dt>Enter</dt><dd>Open selection while the 3D view is focused</dd><dt>W A S D</dt><dd>Fly while the 3D view is focused</dd><dt>Q / E</dt><dd>Descend / ascend</dd><dt>Alt+B / Alt+R</dt><dd>Go back / reset view</dd><dt>/</dt><dd>Search loaded objects</dd></dl><p>Platforms are directories. Towers identify objectives and epics. Blocks are their contents. A beam marks your selection. Block color shows age; story height reflects its estimate.</p><p>The three antennas count direct contents: blue for unstarted, amber for in progress, green for completed. Objectives count epics; epics count stories. Heights are proportional within each platform, with the largest count at full height. A bare socket means zero loaded items in that status. Select a platform for exact counts, including items beyond its preview.</p><p>Use the directory list to navigate with a keyboard. Select an object, then choose <b>Enter directory</b> or <b>Fly to object</b>.</p><div class="dialog-actions"><button data-close="help-dialog">Got it</button></div></div></dialog>
+  <dialog id="help-dialog"><div class="titlebar"><i>Navigator help</i><span class="stretch"></span><button data-close="help-dialog" aria-label="Close">×</button></div><div class="dialog-body"><h2>Welcome to the control room.</h2><p>Inspired by <b>fsn</b>, Silicon Graphics' 3D File System Navigator, seen in Jurassic Park.</p><dl class="help-keys"><dt>Click</dt><dd>Select and inspect</dd><dt>Double-click</dt><dd>Enter a directory or story</dd><dt>Drag / right-drag</dt><dd>Orbit / pan the camera</dd><dt>Scroll / pinch</dt><dd>Move closer or farther</dd><dt>Arrow keys</dt><dd>Select nearby siblings in screen directions</dd><dt>F</dt><dd>Fly to the selected object</dd><dt>Enter</dt><dd>Open selection while the 3D view is focused</dd><dt>Backtick</dt><dd>Open the workspace terminal from the 3D view</dd><dt>W A S D</dt><dd>Fly while the 3D view is focused</dd><dt>Q / E</dt><dd>Descend / ascend</dd><dt>Alt+B / Alt+R</dt><dd>Go back / reset view</dd><dt>/</dt><dd>Search loaded objects</dd></dl><p>Platforms are directories. Towers identify objectives and epics. Blocks are their contents. A beam marks your selection. Block color shows age; story height reflects its estimate.</p><p>The three antennas count direct contents: blue for unstarted, amber for in progress, green for completed. Objectives count epics; epics count stories. Heights are proportional within each platform, with the largest count at full height. A bare socket means zero loaded items in that status. Select a platform for exact counts, including items beyond its preview.</p><p>Use the directory list to navigate with a keyboard. Select an object, then choose <b>Enter directory</b> or <b>Fly to object</b>.</p><div class="dialog-actions"><button data-close="help-dialog">Got it</button></div></div></dialog>
 `;
 
 let world;
 try { world = new World($('#scene'), $('#overview'), select, open); }
 catch { $('#scene').innerHTML = '<div class="webgl-error">WebGL could not start. Enable hardware acceleration or try another browser. You can still explore through the directory list.</div>'; }
+
+const terminal = installSecretTerminal({
+  getCanvas: () => world?.renderer.domElement,
+  stopMovement: () => world?.keys.clear(),
+  actions: {
+    getContext: () => ({ workspace: ws, directory, selected }),
+    hydrate,
+    navigate: open,
+    select: key => locate(key, false),
+    fly: locate,
+  },
+});
+$('#terminal-menu').onclick = terminal.show;
 
 function status(text) { $('#status').textContent = text; }
 function visibleChildren() { return ws.children(directory).filter(node => !node.archived); }
@@ -124,12 +138,12 @@ function open(key) {
   render(); status(`Opened /${node.name.toLowerCase().replaceAll(' ', '_')}`);
   if (live) hydrate(key);
 }
-function locate(key) {
+function locate(key, fly = true) {
   let parent = ws.get(key)?.parents?.[0];
   if (!world?.positions.has(key) && parent) {
     open(parent); const index = visibleChildren().findIndex(n => n.key === key); page = Math.max(0, Math.floor(index / PAGE_SIZE)); render();
   }
-  select(key); world?.select(key, true);
+  select(key); if (fly) world?.select(key, true);
 }
 async function hydrate(key) { if (live) await live.hydrate(key); }
 function renderMarks() {

@@ -12,3 +12,35 @@
 .cache-bar{display:flex;align-items:center;gap:10px;padding:5px 8px;border-bottom:2px groove #d5d8cb;font:11px var(--mono);flex-wrap:wrap}.cache-bar>span{flex:1;min-width:130px;line-height:1.5}.cache-bar button{font-size:12px;padding:6px 9px;white-space:nowrap}
 
 .nedry-screen{padding:12px}.nedry-terminal{background:#030705;color:#70ed83;border:3px inset #737c71;padding:16px;text-align:center;font-family:var(--mono);overflow:hidden}.nedry-log{text-align:left;font-size:11px;line-height:1.6;color:#4b9e58}.nedry-denied{font-size:15px;letter-spacing:2px;margin:10px 0 0;color:#9fffad}.nedry-portrait{width:220px;max-width:100%;aspect-ratio:1;margin:2px auto 0;background-image:url('/images/nedry-wag-original-style.png');background-repeat:no-repeat;background-size:200% 100%;background-position:0 0;image-rendering:pixelated;animation:nedry-wag 700ms steps(1,end) infinite}.nedry-terminal h2{font:bold 19px/1.5 var(--mono);color:#93ffa5;margin:0 0 12px;text-shadow:0 0 8px #70ed8340}.nedry-terminal h2:focus{outline:none}.nedry-explanation{font:12px/1.5 var(--mono);color:#b9cbbb;margin:0}.nedry-screen .dialog-actions{margin:12px 0 0}.nedry-screen[hidden] .nedry-portrait{animation:none}@keyframes nedry-wag{0%,100%{background-position:0 0}50%{background-position:100% 0}}@media(prefers-reduced-motion:reduce){.nedry-portrait{animation:none}}@media(max-width:620px){.nedry-portrait{width:175px}.nedry-terminal{padding:12px}.nedry-terminal h2{font-size:16px}.nedry-log{font-size:10px}}
+
+#secret-terminal{width:700px;max-height:calc(100dvh - 28px)}
+.park-console{background:#030705;color:#70ed83;padding:22px;font:14px/1.6 var(--mono);text-shadow:0 0 5px #70ed8320}
+.park-console-heading{font-size:23px;letter-spacing:2px;border-bottom:1px solid #285b35;padding-bottom:14px;margin-bottom:18px}
+.park-console-heading span{font-size:10px;letter-spacing:1px}
+.park-console-output{height:210px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;scrollbar-color:#386b44 #09160d}
+.park-console-echo{color:#b9ffba;margin-top:12px}
+.park-console-prompt{display:flex;align-items:center;gap:10px;border-top:1px solid #285b35;margin-top:16px;padding-top:12px}
+#park-command{flex:1;width:100%;font:inherit;color:#b9ffba;background:transparent;box-shadow:none;padding:6px 0;caret-color:#b9ffba}
+#park-command:focus-visible{outline:1px solid #42884d;outline-offset:3px}
+.park-console button{background:#13281b;color:#9deb9f;box-shadow:inset 1px 1px #52915d,inset -1px -1px #020502;font:12px var(--mono)}
+.park-console button:focus-visible{outline:2px solid #b9ffba;outline-offset:3px}
+.park-console-lock{text-align:center;border-top:1px solid #285b35;margin-top:14px}
+.park-console-lock .nedry-portrait{width:160px;margin:6px auto 0}
+.park-console-lock h2{font:bold 18px/1.5 var(--mono);color:#93ffa5;margin:0 0 12px}
+.park-console-lock h2:focus{outline:none}
+.park-console-lock[hidden] .nedry-portrait,#secret-terminal:not([open]) .nedry-portrait{animation:none}
+.park-console-footer{display:flex;justify-content:space-between;gap:12px;font-size:9px;color:#6f9f79;border-top:1px solid #285b35;margin-top:18px;padding-top:10px}
+@media(max-width:620px),(max-height:700px){.park-console{padding:14px;font-size:12px}.park-console-heading{font-size:19px;margin-bottom:10px;padding-bottom:8px}.park-console-output{height:140px}.park-console-lock .nedry-portrait{width:120px}.park-console-lock h2{font-size:15px}.park-console-footer{font-size:8px}}
+.park-console-output>a{display:block;color:#b9ffba;text-decoration:underline;overflow-wrap:anywhere}.park-console-output>a:focus-visible{outline:2px solid #b9ffba}.park-console-prompt:has(input:disabled){opacity:.55}
+
+#secret-terminal{position:fixed;inset:auto;margin:0;max-width:none;max-height:none;overflow:hidden}
+#secret-terminal[open]{display:flex;flex-direction:column}
+#secret-terminal>.titlebar{cursor:grab;touch-action:none;user-select:none;min-width:0}
+#secret-terminal>.titlebar i{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#secret-terminal>.titlebar:focus-visible{outline:2px solid #122a53;outline-offset:-3px}
+#secret-terminal.terminal-moving>.titlebar{cursor:grabbing}
+#secret-terminal>.park-console{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto}
+#secret-terminal .park-console-output{height:auto;flex:1;min-height:80px}
+#secret-terminal .park-console-heading,#secret-terminal .park-console-prompt,#secret-terminal .park-console-lock,#secret-terminal .park-console-footer{flex:none}
+#secret-terminal .park-console-footer{padding-right:14px}
+#secret-terminal>.terminal-resize{position:absolute;right:0;bottom:0;width:22px;height:22px;padding:0;font:20px/22px monospace;cursor:nwse-resize;touch-action:none;color:#354e3b}
