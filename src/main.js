@@ -44,7 +44,18 @@ $('#app').innerHTML = `
     <footer class="statusbar"><span class="status-light"></span><span id="status" role="status">Demo loaded. Select an object to inspect it.</span><span class="stretch"></span><span id="status-count">READ ONLY</span><span class="resize-grip">▨</span></footer>
   </main>
   <footer class="desktop-footer"><span>SILICON GRAPHICS INSPIRED <span class="footer-dot">·</span> EST. 1993 / REBUILT 2026</span><span>Connection established. Hold on to your butts.</span></footer>
-  <dialog id="connect-dialog"><form id="connect-form"><div class="titlebar"><i>Connect to Shortcut</i><span class="stretch"></span><button type="button" data-close="connect-dialog" aria-label="Close">×</button></div><div class="dialog-body"><h2>Your workspace, in three dimensions.</h2><p>Enter a Shortcut API token to explore your objectives, epics, stories, and tasks.</p><label for="token">API token</label><input id="token" type="password" required autocomplete="off" spellcheck="false" placeholder="Paste your Shortcut token"><p class="small-copy">The local server keeps your token in memory for this session. Nothing is written to browser storage or sent anywhere except Shortcut. Workspace data is cached on this computer. This navigator only reads Shortcut data.</p><a href="https://app.shortcut.com/settings/account/api-tokens" target="_blank" rel="noreferrer">Create a token in Shortcut ↗</a><p id="connect-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" data-close="connect-dialog">Cancel</button><button type="submit" id="connect-submit">Connect workspace</button></div></div></form></dialog>
+  <dialog id="connect-dialog"><form id="connect-form"><div class="titlebar"><i id="connect-title">Connect to Shortcut</i><span class="stretch"></span><button type="button" data-close="connect-dialog" aria-label="Close">×</button></div><div class="dialog-body" id="connect-fields"><h2>Your workspace, in three dimensions.</h2><p>Enter a Shortcut API token to explore your objectives, epics, stories, and tasks.</p><label for="token">API token</label><input id="token" type="password" required autocomplete="off" spellcheck="false" placeholder="Paste your Shortcut token"><p class="small-copy">The local server keeps your token in memory for this session. Nothing is written to browser storage or sent anywhere except Shortcut. Workspace data is cached on this computer. This navigator only reads Shortcut data.</p><a href="https://app.shortcut.com/settings/account/api-tokens" target="_blank" rel="noreferrer">Create a token in Shortcut ↗</a><p id="connect-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" data-close="connect-dialog">Cancel</button><button type="submit" id="connect-submit">Connect workspace</button></div></div>
+    <section id="nedry-screen" class="nedry-screen" hidden aria-labelledby="nedry-message">
+      <div class="nedry-terminal">
+        <div class="nedry-log" aria-hidden="true">ACCESS MAIN PROGRAM<br>ACCESS SECURITY<br>ACCESS MAIN PROGRAM GRID</div>
+        <div class="nedry-denied">PERMISSION DENIED</div>
+        <div class="nedry-portrait" role="img" aria-label="Dennis Nedry wagging his finger"></div>
+        <h2 id="nedry-message" tabindex="-1" aria-describedby="nedry-reason">Ah ah ah!<br>You didn't say the magic word!</h2>
+        <p id="nedry-reason" class="nedry-explanation">Shortcut rejected that API token.</p>
+      </div>
+      <div class="dialog-actions"><button type="button" data-close="connect-dialog">Cancel</button><button type="button" id="nedry-retry">Try another token</button></div>
+    </section>
+  </form></dialog>
   <dialog id="help-dialog"><div class="titlebar"><i>Navigator help</i><span class="stretch"></span><button data-close="help-dialog" aria-label="Close">×</button></div><div class="dialog-body"><h2>Welcome to the control room.</h2><p>Inspired by <b>fsn</b>, Silicon Graphics' 3D File System Navigator, seen in Jurassic Park.</p><dl class="help-keys"><dt>Click</dt><dd>Select and inspect</dd><dt>Double-click</dt><dd>Enter a directory or story</dd><dt>Drag / right-drag</dt><dd>Orbit / pan the camera</dd><dt>Scroll / pinch</dt><dd>Move closer or farther</dd><dt>Arrow keys</dt><dd>Select nearby siblings in screen directions</dd><dt>F</dt><dd>Fly to the selected object</dd><dt>Enter</dt><dd>Open selection while the 3D view is focused</dd><dt>W A S D</dt><dd>Fly while the 3D view is focused</dd><dt>Q / E</dt><dd>Descend / ascend</dd><dt>Alt+B / Alt+R</dt><dd>Go back / reset view</dd><dt>/</dt><dd>Search loaded objects</dd></dl><p>Platforms are directories. Towers identify objectives and epics. Blocks are their contents. A beam marks your selection. Block color shows age; story height reflects its estimate.</p><p>The three antennas count direct contents: blue for unstarted, amber for in progress, green for completed. Objectives count epics; epics count stories. Heights are proportional within each platform, with the largest count at full height. A bare socket means zero loaded items in that status. Select a platform for exact counts, including items beyond its preview.</p><p>Use the directory list to navigate with a keyboard. Select an object, then choose <b>Enter directory</b> or <b>Fly to object</b>.</p><div class="dialog-actions"><button data-close="help-dialog">Got it</button></div></div></dialog>
 `;
 
@@ -227,12 +238,32 @@ function startSession(member) {
   $('.desktop-note span').textContent = 'SHORTCUT · SESSION CONNECTED';
   render(); live.start();
 }
+function resetTokenError() {
+  $('#nedry-screen').hidden = true;
+  $('#connect-fields').hidden = false;
+  $('#connect-title').textContent = 'Connect to Shortcut';
+  $('#token').disabled = false;
+}
+function showTokenError() {
+  $('#token').value = '';
+  $('#token').disabled = true;
+  $('#connect-fields').hidden = true;
+  $('#nedry-screen').hidden = false;
+  $('#connect-title').textContent = 'Jurassic Park security system';
+  $('#nedry-message').focus({ preventScroll: true });
+}
+$('#nedry-retry').onclick = () => {
+  resetTokenError(); $('#connect-error').textContent = ''; $('#token').focus();
+};
 async function connect() {
   $('#connect-submit').disabled = true; $('#connect-submit').textContent = 'Connecting…'; $('#connect-error').textContent = '';
   try {
     const { member } = await api('session', { method: 'POST', body: JSON.stringify({ token: $('#token').value }) });
     $('#token').value = ''; $('#connect-dialog').close(); startSession(member);
-  } catch (error) { $('#connect-error').textContent = error.message; }
+  } catch (error) {
+    if (error.status === 401) showTokenError();
+    else $('#connect-error').textContent = error.message;
+  }
   finally { $('#connect-submit').disabled = false; $('#connect-submit').textContent = 'Connect workspace'; }
 }
 async function disconnect() {
@@ -245,7 +276,7 @@ async function disconnect() {
     renderMarks(); render(); status('Disconnected. Token removed from the local server.');
   } catch (error) { status(error.message); }
 }
-$('#connect-dialog').addEventListener('close', () => { $('#token').value = ''; });
+$('#connect-dialog').addEventListener('close', () => { $('#token').value = ''; resetTokenError(); });
 render();
 api('session').then(({ member }) => { if (member && !live) startSession(member); }).catch(() => status('Demo mode. Start the local Node server to connect Shortcut.'));
 

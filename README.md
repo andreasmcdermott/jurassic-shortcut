@@ -24,6 +24,8 @@ Both commands serve the same address. Stop the dev server before running the bui
 
 ## Connect Shortcut
 
+An invalid token triggers a Dennis Nedry rejection screen with a finger-wag animation and “Ah ah ah! You didn't say the magic word!” Choose **Try another token** to retry. Network and other API errors retain their normal messages. The animation respects reduced-motion preferences.
+
 Choose **Connect Shortcut…** and paste a token from [Shortcut's API token settings](https://app.shortcut.com/settings/account/api-tokens). The token uses your existing Shortcut access. This app only exposes allowlisted read operations; it cannot change your workspace.
 
 Tokens remain in the Node process's memory. The browser receives an opaque, HttpOnly, SameSite cookie, and clears the token input after connecting or closing the dialog. Tokens are never stored in localStorage, files, or source code. Sessions expire after eight hours or when the server stops. Choose **workspace root**, clear the selection, and use **Disconnect & return to demo** to remove the token from the server.
