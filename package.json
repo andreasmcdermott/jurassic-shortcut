@@ -7,14 +7,21 @@
     "dev": "node server/index.js",
     "build": "vite build",
     "start": "node server/index.js --production",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "preview:cloudflare": "npm run build && wrangler dev --ip 127.0.0.1 --port 1994",
+    "deploy": "npm run build && wrangler deploy",
+    "check:cloudflare": "npm run build && wrangler deploy --dry-run"
   },
   "dependencies": {
     "express": "^5.1.0",
     "three": "^0.180.0"
   },
   "devDependencies": {
-    "vite": "^7.1.5"
+    "fake-indexeddb": "^6.2.5",
+    "vite": "^7.1.5",
+    "wrangler": "^4.131.1"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

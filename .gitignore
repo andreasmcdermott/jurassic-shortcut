@@ -6,3 +6,6 @@ dist/
 .DS_Store
 .sites-runtime/
 .shortcut-cache/
+.wrangler/
+.dev.vars
+.dev.vars.*

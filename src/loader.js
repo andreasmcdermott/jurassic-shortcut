@@ -1,25 +1,76 @@
 import { Workspace } from './data.js';
 
+let nextRequestAt = 0;
+function pause(ms, signal) {
+  return new Promise((resolve, reject) => {
+    signal?.throwIfAborted();
+    const abort = () => { clearTimeout(timer); reject(signal.reason); };
+    const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, ms);
+    signal?.addEventListener('abort', abort, { once: true });
+  });
+}
+async function pacedRequest(path, options) {
+  for (let attempt = 0; ; attempt++) {
+    options.signal.throwIfAborted();
+    const delay = Math.max(0, nextRequestAt - Date.now());
+    nextRequestAt = Date.now() + delay + 350;
+    await pause(delay, options.signal);
+    try { return await api(path, options); }
+    catch (error) {
+      if (error.status !== 429 || attempt >= 2 || error.retryAfter > 30000) throw error;
+      await pause(Math.max(1000, error.retryAfter || 2000), options.signal);
+    }
+  }
+}
+
 export async function api(path, { onCache, ...options } = {}) {
   const response = await fetch(`/api/${path}`, { ...options, headers: { 'Content-Type': 'application/json', 'X-Fsn-Client': '1', ...options.headers } });
   const data = await response.json();
-  if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; throw error; }
+  if (!response.ok) {
+    const error = new Error(data.error || `Request failed (${response.status})`);
+    error.status = response.status;
+    const retryAfter = response.headers.get('Retry-After');
+    error.retryAfter = retryAfter && (Number.isFinite(Number(retryAfter)) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now());
+    throw error;
+  }
   const cacheState = response.headers.get('X-Fsn-Cache');
   if (cacheState) onCache?.({ state: cacheState, savedAt: Number(response.headers.get('X-Fsn-Cache-Saved-At')) || null });
   return data;
 }
 
 export class Loader {
-  constructor(member, onChange, onStatus, onCache = () => {}) {
+  constructor(member, onChange, onStatus, onCache = () => {}, cache = null) {
+    this.cache = cache;
     this.member = member; this.onCache = onCache; this.cachedEpics = new Set();
     this.ws = new Workspace(member.workspace2?.name || 'Shortcut workspace');
     this.onChange = onChange; this.onStatus = onStatus; this.stopped = false;
     this.inflight = new Map(); this.queue = []; this.active = 0; this.completed = 0; this.total = 0; this.failed = 0;
     this.controller = new AbortController();
   }
-  get(path) { return api(`shortcut/${path}`, { signal: this.controller.signal, onCache: info => { if (!this.stopped) this.onCache(info); } }); }
+  async get(path) {
+    const signal = this.controller.signal;
+    const onCache = info => { if (!this.stopped) this.onCache(info); };
+    if (!this.cache) return api(`shortcut/${path}`, { signal, onCache });
+    const entry = await this.cache.read(`/${path}`);
+    signal.throwIfAborted();
+    if (entry) { onCache({ state: 'hit', savedAt: entry.savedAt }); return entry.data; }
+    const generation = this.cache.generation;
+    let data;
+    try { data = await pacedRequest(`shortcut/${path}`, { signal, headers: { 'X-Fsn-Scope': this.cache.scope } }); }
+    catch (error) {
+      if (error.status === 401 || error.status === 409) { this.stop(); this.onStatus(error.message); }
+      throw error;
+    }
+    signal.throwIfAborted();
+    const savedAt = await this.cache.write(`/${path}`, data, generation);
+    onCache({ state: this.cache.enabled ? 'miss' : 'unavailable', savedAt });
+    return data;
+  }
+  clearCache() {
+    return this.cache ? this.cache.clear() : api('cache', { method: 'DELETE' });
+  }
   restore(entries) {
-    const rank = path => path === '/objectives' ? 0 : path.startsWith('/epics/paginated?') ? 1 : path === '/workflows' ? 2 : path === '/members' ? 3 : /^\/epics\/\d+\/stories$/.test(path) ? 4 : path.startsWith('/search/stories?') ? 5 : 6;
+    const rank = path => path === '/objectives' ? 0 : path.startsWith('/epics/paginated?') ? 1 : path === '/workflows' ? 2 : path === '/members' ? 3 : /^\/epics\/\d+\/stories$/.test(path) ? 4 : path.startsWith('/search/stories') ? 5 : 6;
     const ordered = entries.filter(entry => typeof entry.path === 'string').sort((a, b) => rank(a.path) - rank(b.path) || a.savedAt - b.savedAt);
     for (const { path, data } of ordered) {
       if (path === '/objectives' && Array.isArray(data)) data.forEach(node => this.ws.upsert('objective', { ...node, loaded: true }));
@@ -30,7 +81,7 @@ export class Loader {
         data.forEach(node => this.ws.upsert('story', node));
         const id = Number(path.split('/')[2]); this.cachedEpics.add(id);
         const epic = this.ws.get(`epic:${id}`); if (epic) epic.loaded = true;
-      } else if (path.startsWith('/search/stories?') && Array.isArray(data?.data)) data.data.forEach(node => this.ws.upsert('story', node));
+      } else if (path.startsWith('/search/stories') && Array.isArray(data?.data)) data.data.forEach(node => this.ws.upsert('story', node));
       else if (/^\/stories\/\d+$/.test(path) && data?.id != null) {
         this.ws.upsert('story', { ...data, loaded: true });
         (data.tasks || []).forEach(task => this.ws.upsert('task', { ...task, story_id: data.id, updated_at: task.updated_at || data.updated_at, loaded: true }));
@@ -40,7 +91,7 @@ export class Loader {
   }
   async restoreCache() {
     try {
-      const snapshot = await api('cache', { signal: this.controller.signal });
+      const snapshot = this.cache ? await this.cache.snapshot() : await api('cache', { signal: this.controller.signal });
       if (this.stopped) return;
       this.restore(snapshot.entries || []);
       this.onCache({ state: snapshot.enabled ? 'restored' : 'unavailable', savedAt: snapshot.lastSavedAt });

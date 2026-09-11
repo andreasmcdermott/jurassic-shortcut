@@ -1,3 +1,4 @@
+import { BrowserCache } from './browser-cache.js';
 import './style.css';
 import { createDemo, AGE_COLORS, AGE_LABELS, ANTENNA_STATUSES } from './data.js';
 import { World } from './world.js';
@@ -44,7 +45,7 @@ $('#app').innerHTML = `
     <footer class="statusbar"><span class="status-light"></span><span id="status" role="status">Demo loaded. Select an object to inspect it.</span><span class="stretch"></span><span id="status-count">READ ONLY</span><span class="resize-grip">▨</span></footer>
   </main>
   <footer class="desktop-footer"><span>SILICON GRAPHICS INSPIRED <span class="footer-dot">·</span> EST. 1993 / REBUILT 2026</span><span>Connection established. Hold on to your butts.</span></footer>
-  <dialog id="connect-dialog"><form id="connect-form"><div class="titlebar"><i id="connect-title">Connect to Shortcut</i><span class="stretch"></span><button type="button" data-close="connect-dialog" aria-label="Close">×</button></div><div class="dialog-body" id="connect-fields"><h2>Your workspace, in three dimensions.</h2><p>Enter a Shortcut API token to explore your objectives, epics, stories, and tasks.</p><label for="token">API token</label><input id="token" type="password" required autocomplete="off" spellcheck="false" placeholder="Paste your Shortcut token"><p class="small-copy">The local server keeps your token in memory for this session. Nothing is written to browser storage or sent anywhere except Shortcut. Workspace data is cached on this computer. This navigator only reads Shortcut data.</p><a href="https://app.shortcut.com/settings/account/api-tokens" target="_blank" rel="noreferrer">Create a token in Shortcut ↗</a><p id="connect-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" data-close="connect-dialog">Cancel</button><button type="submit" id="connect-submit">Connect workspace</button></div></div>
+  <dialog id="connect-dialog"><form id="connect-form"><div class="titlebar"><i id="connect-title">Connect to Shortcut</i><span class="stretch"></span><button type="button" data-close="connect-dialog" aria-label="Close">×</button></div><div class="dialog-body" id="connect-fields"><h2>Your workspace, in three dimensions.</h2><p>Enter a Shortcut API token to explore your objectives, epics, stories, and tasks.</p><label for="token">API token</label><input id="token" type="password" required autocomplete="off" spellcheck="false" placeholder="Paste your Shortcut token"><p class="small-copy">This navigator only reads Shortcut data. Your token passes through this app’s proxy to Shortcut. Hosted sessions use an encrypted, HttpOnly cookie for up to eight hours; local sessions keep the token in server memory. Workspace data is cached on this computer for future visits. Use your own device and disconnect when finished.</p><a href="https://app.shortcut.com/settings/account/api-tokens" target="_blank" rel="noreferrer">Create a token in Shortcut ↗</a><p id="connect-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" data-close="connect-dialog">Cancel</button><button type="submit" id="connect-submit">Connect workspace</button></div></div>
     <section id="nedry-screen" class="nedry-screen" hidden aria-labelledby="nedry-message">
       <div class="nedry-terminal">
         <div class="nedry-log" aria-hidden="true">ACCESS MAIN PROGRAM<br>ACCESS SECURITY<br>ACCESS MAIN PROGRAM GRID</div>
@@ -211,13 +212,13 @@ $('#refresh-data').onclick = async () => {
   $('#refresh-data').disabled = true;
   previous.stop(); status('Clearing the local cache and fetching current Shortcut data…');
   try {
-    await api('cache', { method: 'DELETE' });
-    if (live === previous) startSession(previous.member);
+    await previous.clearCache();
+    if (live === previous) startSession(previous.member, previous.cache);
   } catch (error) {
-    if (live === previous) { startSession(previous.member); status(error.message); }
+    if (live === previous) { startSession(previous.member, previous.cache); status(error.message); }
   } finally { $('#refresh-data').disabled = false; }
 };
-function startSession(member) {
+function startSession(member, cache = null) {
   live?.stop(); clearTimeout(updateTimer);
   cacheLastSavedAt = 0;
   let framed = false;
@@ -230,7 +231,7 @@ function startSession(member) {
       const frame = !framed && ws.children(directory).length > 0;
       render(frame); if (frame) framed = true;
     }, 140);
-  }, status, showCacheStatus);
+  }, status, showCacheStatus, cache);
   ws = live.ws; directory = 'root'; selected = null; history = []; page = 0; marks = [];
   $('#search').value = ''; renderMarks();
   $('#session-label').textContent = 'SHORTCUT CONNECTED';
@@ -258,8 +259,8 @@ $('#nedry-retry').onclick = () => {
 async function connect() {
   $('#connect-submit').disabled = true; $('#connect-submit').textContent = 'Connecting…'; $('#connect-error').textContent = '';
   try {
-    const { member } = await api('session', { method: 'POST', body: JSON.stringify({ token: $('#token').value }) });
-    $('#token').value = ''; $('#connect-dialog').close(); startSession(member);
+    const { member, cacheScope } = await api('session', { method: 'POST', body: JSON.stringify({ token: $('#token').value }) });
+    $('#token').value = ''; $('#connect-dialog').close(); startSession(member, cacheScope ? new BrowserCache(cacheScope) : null);
   } catch (error) {
     if (error.status === 401) showTokenError();
     else $('#connect-error').textContent = error.message;
@@ -273,12 +274,12 @@ async function disconnect() {
     ws = createDemo(); directory = 'root'; selected = null; history = []; marks = []; page = 0;
     $('#search').value = ''; $('#session-label').textContent = 'DEMO WORKSPACE'; $('#connect').textContent = 'Connect Shortcut…';
     $('.desktop-note span').textContent = 'ISLA NUBLAR · SYSTEM ONLINE';
-    renderMarks(); render(); status('Disconnected. Token removed from the local server.');
+    renderMarks(); render(); status('Disconnected. Session cleared; cached workspace data remains on this computer.');
   } catch (error) { status(error.message); }
 }
 $('#connect-dialog').addEventListener('close', () => { $('#token').value = ''; resetTokenError(); });
 render();
-api('session').then(({ member }) => { if (member && !live) startSession(member); }).catch(() => status('Demo mode. Start the local Node server to connect Shortcut.'));
+api('session').then(({ member, cacheScope }) => { if (member && !live) startSession(member, cacheScope ? new BrowserCache(cacheScope) : null); }).catch(() => status('Demo mode. Connect Shortcut to browse your workspace.'));
 
 // Optional page-scoped navigation for browsers that support WebMCP.
 if (document.modelContext?.registerTool) {
